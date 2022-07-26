@@ -5,7 +5,7 @@ RxSwift, RxCocoa를 사용한 다양한 예제를 다룹니다.
 먼저 기존의 Sync, Async 방식의 처리는 아래와 같습니다. 
 
 불러올 사진의 링크는 https://picsum.photos/ 입니다.
-### Sync
+## Sync
 ```
 @IBAction func onLoadSync(_ sender: Any) {
     let image = loadImage(from: IMAGE_URL)
@@ -23,7 +23,7 @@ private func loadImage(from imageUrl: String) -> UIImage? {
 네트워크 작업을 동기적으로 하면 앱이 정지된 것처럼 보입니다.
 사진 아래의 숫자 카운트가 사진을 불러오는 동안 정지되는 것을 보면 알수 있습니다.
 
-### Async
+## Async
 ```
 @IBAction func onLoadAsync(_ sender: Any) {
     // TODO: async
@@ -39,7 +39,7 @@ private func loadImage(from imageUrl: String) -> UIImage? {
 GCD의 DispatchQueue를 사용하여 비동기적으로 처리하는 코드블럭을 추가했습니다.
 또한 반드시 메인 스레드에서 작업해야 할 내용(주로 UIKit)은 따로 메인 스레드에서 처리 해줍니다.
 
-### PromiseKit의 Async
+## PromiseKit의 Async
 ```
 @IBAction func onLoadImage(_ sender: Any) {
     imageView.image = nil
@@ -68,7 +68,7 @@ func promiseLoadImage(from imageUrl: String) -> Promise<UIImage?> {
 또한 GCD를 통해서도 비동기적으로 처리가 가능합니다. 하지만 그럴 경우엔 상황에 맞게 사용해야 하는데 어디서는 OperationQueue, 다른 곳에선 DispatchQueue 이런식으로 코드의 일관성이 없어집니다.
 유지보수에도 어려움이 존재합니다.
 
-### RxSwift
+## RxSwift
 > An API for asynchronous programming   
 with observable streams
 
@@ -263,4 +263,134 @@ private var imageSize: CGSize?
 > size: Optional((800.0, 600.0))   
 imageSize: Optional((800.0, 600.0))
 
-하지만 외부에 영향을 주는 코드를 다른 곳에서 사용할 수는 있다고는 합니다만 권장하지는 않는다고 합니다.
+하지만 외부에 영향을 주는 코드를 do, subscribe가 아닌 다른 곳에서도 사용할 수는 있다고는 합니다만 권장하지는 않는다고 합니다.
+
+## RxCocoa
+**RxCocoa**란?
+> 애플 환경(iOS/macOS/watchOS 및 tvOS)의 애플리케이션을 개발하기 위한 Cocoa Framework 전용 기능을 제공하는 라이브러리
+
+#### 예시
+예를 들어 ID를 입력하는 텍스트필드, Password를 입력하는 텍스트필드가 있다고 가정하고 각 인풋값이 올바른지 판단해주기 위해 빨간 점으로 된 bullet이 있다고 가정합니다. 그리고 각각의 인풋값을 올바르게 입력하면 로그인 버튼이 활성화가 됩니다.
+만약 RxCocoa를 사용하지 않고 작성하려면 어떻게 해야 할까요?
+
+1. 각 텍스트필드마다 Selector함수를 만들고 UIControl Event를 생성합니다.
+2. <code>UITextFieldDelegate</code>를 상속하고 <code>textFieldDidChange</code>로 키보드의 입력에 대한 이벤트를 실시간으로 받습니다.
+3. 각 텍스트필드(id, pw)에 반드시 들어가야할 문자 혹은 문자열 카운트의 조건 함수를 생성합니다.
+4. 조건에 부합할 시 로그인 버튼을 활성화합니다.
+
+이런식으로 많이 했던 과정들을 사용하는데, RxCocoa를 사용하면 아래 방법으로 이용 가능합니다.
+```
+idField.rx.text
+    .orEmpty // nil인지 판별
+    .map(checkEmailValid(_:)) // 이메일 형식이 올바른지 판단
+    .subscribe(onNext: { bool in // 구독하여 Boolean 형태의 값을 받고
+    self.idValidView.isHidden = bool //  bullet의 Hidden 여부를 판단
+})
+    .disposed(by: disposeBag)
+    
+pwField.rx.text
+    .orEmpty
+    .map(checkPasswordValid(_:))
+    .subscribe(onNext: { bool in
+    self.pwValidView.isHidden = bool
+})
+    .disposed(by: disposeBag)
+    
+private func checkEmailValid(_ email: String) -> Bool {
+    return email.contains("@") && email.contains(".")
+}
+
+private func checkPasswordValid(_ password: String) -> Bool {
+    return password.count > 5
+}
+```
+
+위와 같이 작성하면 id와 pw의 bullet이 각 올바른 형식에 부합하면 사라지고 올바르지 않으면 그대로 존재합니다.
+이제 우리는 위 두개의 Observable을 하나로 결합해서 두 조건 모두 true일 때 로그인 버튼이 활성화 되게 만들어야 합니다.
+그럴 때 사용하는 메서드가 <code>CombineLatest</code>입니다. 이것은 아래와 같은 기능을 제공합니다.
+> 두 개의 Observable 중 하나가 항목을 배출할 때 배출된 마지막 항목과 다른 한 Observable이 배출한 항목을 결합한 후 함수를 적용하여 실행 후 실행된 결과를 배출한다
+
+그럼 여기서 Observable을 하나 새로 만들고 CombineLatest 메서드를 이용해 위 두 Observable을 결합해 각각의 Source들을 넣고 모든 조건이 맞을 때 true를 반환합니다.
+하나라도 조건에 부합하지 않을 시 false를 반환하고요.
+```
+Observable.combineLatest(
+    idField.rx.text.orEmpty.map(checkEmailValid(_:)), // 조건 판별하여 나오는 bool
+    pwField.rx.text.orEmpty.map(checkPasswordValid(_:))) // 동일
+    { id, pw in id && pw } // id, pw의 Source가 조건에 맞을시 true, 아니면 false
+    .subscribe { bool in
+    self.loginButton.isEnabled = bool // 로그인 버튼의 활성화 유무 결정
+}
+    .disposed(by: disposeBag)
+```
+이제 실행해보면 정상적으로 잘 작동합니다. 하지만 중복되는 코드가 많아요. 리팩토링을 해야 합니다.
+
+```
+let idInputOb = idField.rx.text.orEmpty.asObservable() // 텍스트필드의 텍스트가 nil이 아닌지 판별후 nil 아니면 언래핑. asObservable()은 ControlProperty 타입을 Observable 타입으로
+let idValidOb = idInputOb.map(checkEmailvalid(_:))
+let pwInputOb = pwField.rx.text.orEmpty.asObservable()
+let pwValidOb = pwInputOb.map(checkPasswordvalid(_:))
+
+idValidOb.subscribe(onNext: { bool in
+    self.idValidView.isHidden = bool
+}).disposed(by: disposeBag)
+
+pwValidOb.subscribe(onNext: { bool in
+    self.pwValidView.isHidden = bool
+}).disposed(by: disposeBag)
+
+Observable.combineLatest(idValidOb, pwValidOb) { id, pw in id && pw }
+    .subscribe(onNext: { bool in
+    self.loginButton.isEnabled = bool
+}).disposed(by: disposeBag)
+```
+이렇게 작성해도 같은 결과를 얻을 수 있습니다.
+여기서 다시 리팩토링을 하면 Input(id, pw 입력)과 Output(Input에서 나온 결과(Boolean)을 가지고 불릿 Hidden 여부, 로그인버튼 활성화 여부)을 구분해서 리팩토링할 수도 있습니다.
+먼저 전역변수로 <code>BehaviorSubject(value:_)</code>를 사용합니다. BehaviorSubject는 기본적으로 PublishSubject와 유사하지만 기본값을 갖는다는 차이점이 존재합니다.
+따라서 아래와 같이 작성할 수 있습니다.
+```
+let idValid: BehaviorSubject<Bool> = BehaviorSubject(value: false)
+let idInputText: BehaviorSubject<String> = BehaviorSubject(value: "")
+let pwValid: BehaviorSubject<Bool> = BehaviorSubject(value: false)
+let pwInputText: BehaviorSubject<String> = BehaviorSubject(value: "")
+
+private func bindInput() { // Input
+   idField.rx.text.orEmpty
+      .bind(to: idInputText)
+      .disposed(by: disposeBag)
+
+   idInputText
+      .map(checkEmailValid(_:))
+      .bind(to: idValid)
+      .disposed(by: disposeBag)
+
+   pwField.rx.text.orEmpty
+      .bind(to: pwInputText)
+      .disposed(by: disposeBag)
+
+   pwInputText
+      .map(checkPasswordValid(_:))
+      .bind(to: pwValid)
+      .disposed(by: disposeBag)
+}
+
+private func bindOutput() { // Output
+   idValid.subscribe(onNext: { bool in
+      self.idValidView.isHidden = bool
+   }).disposed(by: disposeBag)
+
+pwValid.subscribe(onNext: { bool in
+      self.pwValidView.isHidden = bool
+   }).disposed(by: disposeBag)
+
+Observable.combineLatest(idValid, pwValid) { id, pw in id && pw }
+    .subscribe(onNext: { bool in
+      self.loginButton.isEnabled = bool
+   }).disposed(by: disposeBag)
+}
+```
+먼저 valid, inputText를 BehaviorSubject 타입으로 만들고 각각 false, "" 라는 기본값을 줍니다.
+이후부터는 크게 다를만한게 없지만 <code>bind(to:)</code>를 살펴보면, bind는 값을 관찰하다가 변경되면 <code>bind(to:)</code>에 있는 대상으로 값을 넘겨줍니다.
+그리고 <code>bind(to:)</code>의 리턴타입을 보면 <code>Disposable</code>입니다. 그래서 disposeBag에 담아주고요.
+이렇게 Input, Output을 명확하게 구분해서 작성 가능하고 훨씬 안정적이고 간결하게 표현 가능합니다.
+
+
