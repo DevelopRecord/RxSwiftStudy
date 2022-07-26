@@ -393,4 +393,6 @@ Observable.combineLatest(idValid, pwValid) { id, pw in id && pw }
 그리고 <code>bind(to:)</code>의 리턴타입을 보면 <code>Disposable</code>입니다. 그래서 disposeBag에 담아주고요.
 이렇게 Input, Output을 명확하게 구분해서 작성 가능하고 훨씬 안정적이고 간결하게 표현 가능합니다.
 
-
+그리고 한가지 더 추가하자면 **Memory Leak**에 대해 설명하려 합니다.
+<code>bindOutput()</code> 함수에서 <code>self.</code> 으로 외부 프로퍼티에 접근하고 있습니다. 이 경우에 Reference count가 증가하게 되고 클로저 내에서 참조를 갖게 되면서 서로 참조하는 형태를 **순환 참조**라고 합니다.
+이 경우 참조가 해제되지 않는 경우를 우려하여 <code>in</code> 앞에 <code>[weak self]</code> 키워드로 weak 레퍼런스를 갖도록 처리합니다.
