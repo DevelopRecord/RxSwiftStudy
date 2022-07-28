@@ -1,5 +1,7 @@
 # RxSwiftStudy
 RxSwift, RxCocoa를 사용한 다양한 예제를 다룹니다.   
+
+# Season 1
 기초 예시는 [곰튀김](https://www.youtube.com/watch?v=w5Qmie-GbiA&ab_channel=%EA%B3%B0%ED%8A%80%EA%B9%80)님의 RxSwift 영상을 보면서 정리하였습니다.
    
 먼저 기존의 Sync, Async 방식의 처리는 아래와 같습니다. 
@@ -396,3 +398,85 @@ Observable.combineLatest(idValid, pwValid) { id, pw in id && pw }
 그리고 한가지 더 추가하자면 **Memory Leak**에 대해 설명하려 합니다.
 <code>bindOutput()</code> 함수에서 <code>self.</code> 으로 외부 프로퍼티에 접근하고 있습니다. 이 경우에 Reference count가 증가하게 되고 클로저 내에서 참조를 갖게 되면서 서로 참조하는 형태를 **순환 참조**라고 합니다.
 이 경우 참조가 해제되지 않는 경우를 우려하여 <code>in</code> 앞에 <code>[weak self]</code> 키워드로 weak 레퍼런스를 갖도록 처리합니다.
+
+# Season 2
+먼저 들어가기에 앞서 RxSwift의 Observable의 생명주기에 대해 살펴보도록 할게요.
+1. Observable을 생성 **create** (create 외에도 just, from, of 등)
+2. 생성한 Observable 안의 Observer가 방출한 데이터 받기 위해 **Subscribe**
+3. next
+4. completed / error
+5. Dispose
+
+Season 1 에서 배웠던 내용들을 활용해 앱과 서버간의 데이터를 주고받는 API인 URLSession을 사용해서 Observable을 만들어보겠습니다.
+(RxSwift 코드를 중점적으로 정리하기 위해 일부 생략된 코드가 있습니다.)
+```
+let MEMBER_LIST_URL = "https://my.api.mockaroo.com/members_with_avatar.json?key=44ce18f0"
+
+...
+
+func downloadJson(_ urlString: String) -> Observable<String?> {
+   return Observable.create { observer in
+      let url = URL(string: urlString)!
+      
+      let task = URLSession.shared.dataTask(with: url) { data, _, error in
+         guard error == nil else { // 에러가 nil이 아니면 에러가 발생했다는 의미
+            observer.onError(error)
+            return
+         }
+         
+         if let data = data, let json = String(data: data, encoding: .utf8) {
+            observer.onNext(json)
+         }
+         
+         observer.onCompleted()
+      }
+      task.resume()
+      
+      return Disposables.create() {
+         task.cancel()
+      }
+   }
+}
+
+@IBAction func onLoad() {
+   downloadJson(MEMBER_LIST_URL)
+      .subscribe { event in
+         switch event {
+         case .next(let json):
+            DispatchQueue.main.async {
+               self.editView.text = json
+               self.setVisibleWithAnimation(self.activityIndicator, false)
+            }
+         case .error(_):
+            break
+         case .completed:
+            break
+         }
+     }.disposed(by: disposeBag)
+}
+```
+
+<code>downloadJson</code> 함수부터 살펴보면, 우선 이 예제에서 <code>create</code> 메서드를 사용하는것은 적절하지 않습니다.
+받아오는 데이터는 달랑 하나뿐인데 return <code>Observable.create { observer in .....</code> 같은 코드를 사용하기엔 코드 효율성이 좋지 않아요.
+이때는 Season 1에서도 사용했다시피, <code>just</code>를 사용하면 편하고 코드면에서도 좋습니다.
+
+그럼 <code>onLoad</code> 액션 함수를 살펴볼게요.
+switch 문의 next 케이스를 살펴보면 저 코드는 Side-Effect이기 때문에 메인 쓰레드에서 작업해줘야 해요.
+그래서 <code>DispatchQueue.main.async { ... }</code>로 작업해줬는데요. 이 경우도 저번시간에 썼던 걸 활용해보면,
+```
+@IBAction func onLoad() {
+   downloadJson(MEMBER_LIST_URL)
+      .map { json in json?.count ?? 0 }
+      .filter { cnt in cnt > 0 }
+      .map { String($0) }
+      .subscribeOn(ConcurrentDispatchQueueScheduler(qos: .default))
+      .observeOn(MainScheduler.instance)
+      .subscribe(onNext: { json in
+         self.editView.text = json
+         self.setVisibleWithAnimation(self.activityIndicator, false)
+      }).disposed(by: disposeBag)
+}
+```
+Side-Effect에 해당하는 코드부터는 메인쓰레드에서 작업해야 하기때문에 <code>observeOn(MainScheduler.instance)</code>를 사용해서 <code>DispatchQueue</code> 대신 써줍니다.
+<code>subscribeOn</code>은 데이터를 받아오는 순간부터 비동기작업으로 처리할 수 있게 해주는 Operator입니다.
+이런 map, filter, subscribeOn, just 등등의 Operator들을 Sugar API라고 부릅니다.
