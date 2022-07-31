@@ -407,6 +407,7 @@ Observable.combineLatest(idValid, pwValid) { id, pw in id && pw }
 4. completed / error
 5. Dispose
 
+## STEP 1
 Season 1 에서 배웠던 내용들을 활용해 앱과 서버간의 데이터를 주고받는 API인 URLSession을 사용해서 Observable을 만들어보겠습니다.
 (RxSwift 코드를 중점적으로 정리하기 위해 일부 생략된 코드가 있습니다.)
 ```
@@ -480,3 +481,5 @@ switch 문의 next 케이스를 살펴보면 저 코드는 Side-Effect이기 때
 Side-Effect에 해당하는 코드부터는 메인쓰레드에서 작업해야 하기때문에 <code>observeOn(MainScheduler.instance)</code>를 사용해서 <code>DispatchQueue</code> 대신 써줍니다.
 <code>subscribeOn</code>은 데이터를 받아오는 순간부터 비동기작업으로 처리할 수 있게 해주는 Operator입니다.
 이런 map, filter, subscribeOn, just 등등의 Operator들을 Sugar API라고 부릅니다.
+
+## STEP 3
