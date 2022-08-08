@@ -8,7 +8,7 @@ RxSwift, RxCocoa를 사용한 다양한 예제를 다룹니다.
 
 불러올 사진의 링크는 https://picsum.photos/ 입니다.
 ## Sync
-```
+``` Swift
 @IBAction func onLoadSync(_ sender: Any) {
     let image = loadImage(from: IMAGE_URL)
     imageView.image = image
@@ -26,7 +26,7 @@ private func loadImage(from imageUrl: String) -> UIImage? {
 사진 아래의 숫자 카운트가 사진을 불러오는 동안 정지되는 것을 보면 알수 있습니다.
 
 ## Async
-```
+``` Swift
 @IBAction func onLoadAsync(_ sender: Any) {
     // TODO: async
     DispatchQueue.global().async {
@@ -42,7 +42,7 @@ GCD의 DispatchQueue를 사용하여 비동기적으로 처리하는 코드블�
 또한 반드시 메인 스레드에서 작업해야 할 내용(주로 UIKit)은 따로 메인 스레드에서 처리 해줍니다.
 
 ## PromiseKit의 Async
-```
+``` Swift
 @IBAction func onLoadImage(_ sender: Any) {
     imageView.image = nil
 
@@ -84,7 +84,7 @@ Observable, Operator, Scheduler, Subject, Single
 이후 Subscribe를 합니다. Subscribe 이전까지는 그저 값을 처리하는 방식을 작성한 것입니다. 즉, 정의한 것 뿐이고 값을 받아오는 그 자체가 아닙니다.
 쉽게 생각해 보자면, 유튜브에서 어떤 채널을 구독해야 우리가 그 채널에 대한 영상과 알림 등을 받아볼 수 있어요.
 
-```
+``` Swift
 func rxswiftLoadImage(from imageUrl: String) -> Observable<UIImage?> {
     return Observable.create { observer in
         asyncLoadImage(from: imageUrl) { image in
@@ -104,7 +104,7 @@ func rxswiftLoadImage(from imageUrl: String) -> Observable<UIImage?> {
 Observable이 모든 행동을 다 취하였으면 필요없어지겠죠? 그러면 종료해야 합니다.
 dispose 방식에는 아래와 같은 방식이 존재합니다.
 
-```
+``` Swift
 var dispose: Disposable?
 
 rxswiftLoadImage(from: LARGER_IMAGE_URL)
@@ -117,7 +117,7 @@ rxswiftLoadImage(from: LARGER_IMAGE_URL)
 
 Disposable 타입의 객체를 변수로 받아서 dispose()메소드로 취소합니다.
 
-```
+``` Swift
 var dispose: Disposable?
 private var disposeBag = DisposeBag()
 
@@ -142,7 +142,7 @@ private var disposeBag = DisposeBag()
 ```
 
 만약 사진을 불러오는 도중 취소하려면 어떻게 구현해야 할까요?
-```
+``` Swift
 @IBAction func onCancel(_ sender: Any) {
     // TODO: cancel image loading
     disposable?.dispose()
@@ -152,7 +152,7 @@ private var disposeBag = DisposeBag()
 
 #### map
 map은 기존의 map과 사용방법이 같습니다. 기존 데이터를 새로운 데이터로 변형해서 스트림을 내보내는 것이죠.
-```
+``` Swift
 @IBAction func exMap3() {
     Observable.just("800x600")
         .map { $0.replacingOccurrences(of: "x", with: "/") }
@@ -185,7 +185,7 @@ map은 기존의 map과 사용방법이 같습니다. 기존 데이터를 새로
 just에 들어온 데이터를 변형하고 필터링하는 과정은 비동기적으로 다시 말해, Concurrency하게 처리해야 합니다.
 그리고 imageView에 image를 삽입하는 과정은 UI 처리와 관련된 부분이기 때문에 반드시 Main Thread에서 작업해야 합니다.
 observeOn의 사용방법은 아래와 같습니다.
-```
+``` Swift
 @IBAction func exMap3() {
     Observable.just("800x600")
         .observeOn(ConcurrentDispatchQueueScheduler(qos: .default) // subscribe 전까지 변형, 필터링하는 과정은 ConcurrentDispatchQueueScheduler
@@ -210,7 +210,7 @@ observeOn의 사용방법은 아래와 같습니다.
 그 경우엔 subscribeOn()을 사용하면 됩니다.
 subscribeOn은 .subscribe 되는 순간에 즉, subscribe 이후부터 원하는 Scheduler로 Observable.just(...)부터 코드를 읽어 내려갑니다.
 그래서 subscribeOn의 위치는 어디에 있든 영향을 받지 않습니다. 이제 마지막으로 코드를 보면 아래와 같습니다.
-```
+``` Swift
 @IBAction func exMap3() {
     Observable.just("800x600")
         .map { $0.replacingOccurrences(of: "x", with: "/") }
@@ -237,7 +237,7 @@ Side-Effect를 허용해주는 메서드는 두 개가 존재합니다. 첫번�
 함수형 프로그래밍 개념에 따르면 외부에 영향을 주는 코드는 적합하지 않다고 합니다. 외부에 영향을 준다는 말은 극단적으로 보면 예측할 수 없는 곳에서 에러가 발생할 가능성이 있다는 얘기기도 합니다.
 하지만 외부에 영향을 줘야 하는 경우도 반드시 있습니다. 예를 들면, 위처럼 UI에 적용해준다던지, 전역변수에 변형시킨 데이터를 넘겨준다던지 하는 경우입니다.
 
-```
+``` Swift
 private var imageSize: CGSize?
 
 @IBAction func exMap3() {
@@ -281,7 +281,7 @@ imageSize: Optional((800.0, 600.0))
 4. 조건에 부합할 시 로그인 버튼을 활성화합니다.
 
 이런식으로 많이 했던 과정들을 사용하는데, RxCocoa를 사용하면 아래 방법으로 이용 가능합니다.
-```
+``` Swift
 idField.rx.text
     .orEmpty // nil인지 판별
     .map(checkEmailValid(_:)) // 이메일 형식이 올바른지 판단
@@ -314,7 +314,7 @@ private func checkPasswordValid(_ password: String) -> Bool {
 
 그럼 여기서 Observable을 하나 새로 만들고 CombineLatest 메서드를 이용해 위 두 Observable을 결합해 각각의 Source들을 넣고 모든 조건이 맞을 때 true를 반환합니다.
 하나라도 조건에 부합하지 않을 시 false를 반환하고요.
-```
+``` Swift
 Observable.combineLatest(
     idField.rx.text.orEmpty.map(checkEmailValid(_:)), // 조건 판별하여 나오는 bool
     pwField.rx.text.orEmpty.map(checkPasswordValid(_:))) // 동일
@@ -326,7 +326,7 @@ Observable.combineLatest(
 ```
 이제 실행해보면 정상적으로 잘 작동합니다. 하지만 중복되는 코드가 많아요. 리팩토링을 해야 합니다.
 
-```
+``` Swift
 let idInputOb = idField.rx.text.orEmpty.asObservable() // 텍스트필드의 텍스트가 nil이 아닌지 판별후 nil 아니면 언래핑. asObservable()은 ControlProperty 타입을 Observable 타입으로
 let idValidOb = idInputOb.map(checkEmailvalid(_:))
 let pwInputOb = pwField.rx.text.orEmpty.asObservable()
@@ -349,7 +349,7 @@ Observable.combineLatest(idValidOb, pwValidOb) { id, pw in id && pw }
 여기서 다시 리팩토링을 하면 Input(id, pw 입력)과 Output(Input에서 나온 결과(Boolean)을 가지고 불릿 Hidden 여부, 로그인버튼 활성화 여부)을 구분해서 리팩토링할 수도 있습니다.
 먼저 전역변수로 <code>BehaviorSubject(value:_)</code>를 사용합니다. BehaviorSubject는 기본적으로 PublishSubject와 유사하지만 기본값을 갖는다는 차이점이 존재합니다.
 따라서 아래와 같이 작성할 수 있습니다.
-```
+``` Swift
 let idValid: BehaviorSubject<Bool> = BehaviorSubject(value: false)
 let idInputText: BehaviorSubject<String> = BehaviorSubject(value: "")
 let pwValid: BehaviorSubject<Bool> = BehaviorSubject(value: false)
@@ -410,7 +410,7 @@ Observable.combineLatest(idValid, pwValid) { id, pw in id && pw }
 ## STEP 1
 Season 1 에서 배웠던 내용들을 활용해 앱과 서버간의 데이터를 주고받는 API인 URLSession을 사용해서 Observable을 만들어보겠습니다.
 (RxSwift 코드를 중점적으로 정리하기 위해 일부 생략된 코드가 있습니다.)
-```
+``` Swift
 let MEMBER_LIST_URL = "https://my.api.mockaroo.com/members_with_avatar.json?key=44ce18f0"
 
 ...
@@ -464,7 +464,7 @@ func downloadJson(_ urlString: String) -> Observable<String?> {
 그럼 <code>onLoad</code> 액션 함수를 살펴볼게요.
 switch 문의 next 케이스를 살펴보면 저 코드는 Side-Effect이기 때문에 메인 쓰레드에서 작업해줘야 해요.
 그래서 <code>DispatchQueue.main.async { ... }</code>로 작업해줬는데요. 이 경우도 저번시간에 썼던 걸 활용해보면,
-```
+``` Swift
 @IBAction func onLoad() {
    downloadJson(MEMBER_LIST_URL)
       .map { json in json?.count ?? 0 }
