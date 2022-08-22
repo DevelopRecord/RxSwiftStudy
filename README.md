@@ -482,4 +482,49 @@ Side-Effect에 해당하는 코드부터는 메인쓰레드에서 작업해야 �
 <code>subscribeOn</code>은 데이터를 받아오는 순간부터 비동기작업으로 처리할 수 있게 해주는 Operator입니다.
 이런 map, filter, subscribeOn, just 등등의 Operator들을 Sugar API라고 부릅니다.
 
-## STEP 3
+# RxSwift(Input, Output) + MVVM(Model, View, ViewModel)
+기존에 MVC 디자인 패턴으로 만들었던 프로젝트를 RxSwift + MVVM 으로 리팩토링을 하는 기회를 가져보려 합니다.
+시작하기에 앞서 굳이 MVC 디자인 패턴을 버리고 RxSwift + MVVM 패턴으로 리팩토링을 하는 수고로움을 가지는 이유가 무엇인지, 거기에서 얻는 이점은 무엇이고 또 따라오는 단점은 무엇이 있을지 정리합니다.
+
+## MVC Design Pattern
+```Model``` Data & Logic - 데이터 저장 및 변형, 가공 로직   
+```View``` User Interface - 사용자에게 보여지는 화면   
+```Controller``` Mediator - Model과 View간의 동작 원리   
+
+MVC 패턴이란 Model, View, Controller로 이루어진 디자인 패턴입니다. 각각의 기능들을 담는 클래스들을 분업하고 로직들을 따로따로 처리합니다.  
+이는 코드의 관리가 편해지고 오류를 유추하기 쉬워지고 에러와 실수를 줄여준다는 큰 이점이 존재합니다.  
+   
+하지만 마냥 장점만 존재하지는 않습니다. 단점으로는,  
+프로젝트의 규모가 커지면 점점 관리하기가 어려워질 수 있고 또한 View와 Model 사이에 의존성이 높아 유지보수의 문제로 다가올 수 있습니다.  
+그래서 Model에 넣기도 그렇다고 View에 넣기도 애매한 코드들은 전부 Controller로 들어가게 되는데 이는 흔히 말하는 Massive View Controller가 되는 난감한 문제가 초래할 수 있습니다.  
+  
+하지만 이렇다고 무조건 MVC 대신에 MVVM은 옳지 않습니다. 위 상황은 규모가 비교적 큰 프로젝트에서 발생할 수 있는 문제지, 규모가 작은 프로젝트에서는 오히려 MVC가 더 적합합니다.  
+왜냐하면 MVVM은 로직을 설계하기 어렵고 오히려 규모가 작은 프로젝트에서 MVVM 패턴은 복잡해서 되려 유지보수가 어려워질 수 있다는 단점이 존재합니다.  
+따라서, 각 상황에 맞게 어떤 디자인 패턴을 적용하는게 올바른지 잘 판단하여 사용하면 설계, 문제해결에 크게 장점으로 다가옵니다.  
+  
+## MVVM Design Pattern
+```Model``` Data & Logic - 데이터 저장 및 변형, 가공 로직  
+```View``` User Interface - 사용자에게 보여지는 화면  
+```ViewModel``` View Logic - 이벤트를 바탕으로 Model을 업데이트 후 View에 전달하여 UI 업데이트 로직  
+
+먼저 ```Model```은 MVC와 역할이 동일합니다. 데이터를 저장하고 변형이 필요한 데이터가 있으면 연산하는 로직이죠.  
+```View```는 User Interface로 비슷한 것 같지만, 실은 다릅니다. View에서 발생한 이벤트들을 ViewModel에서 처리하게 되고 View는 ViewModel의 변경사항을 감지하고 ViewModel이 업데이트한 데이터를 보여줍니다.  
+재사용성과 단위테스트에 용이하다는 장점이 존재합니다.
+```ViewModel```은 핵심 로직으로써 화면 표현의 대부분을 차지합니다. 이벤트를 처리할 때 Model을 업데이트하고 그 결과를 다시 받아서 View에 전달하여 UI를 업데이트하는 주요 로직입니다.  
+객체를 관리하기 쉽다는 장점이 존재합니다.
+  
+동작원리는 아래와 같습니다.  
+i. User Interaction(Action)이 View를 통해 들어옵니다.  
+ii. 들어온 Action을 ViewModel에 전달합니다.  
+iii. ViewModel은 들어온 Action을 바탕으로 처리 및 가공하여 저장합니다.  
+iv. View는 ViewModel과 Data Binding합니다.  
+v. View는 UI를 업데이트합니다.  
+  
+이렇게 MVVM 디자인 패턴을 적용하게 되면 기존 MVC 디자인 패턴의 문제인 View와 Model의 의존성이 없어집니다. View와 Model 이 둘은 서로를 알지 못해요.  
+Data Binding을 이용하였기 때문에 View와 ViewModel 이 둘의 의존성 또한 없어진 디자인 패턴이 MVVM 디자인 패턴입니다. 이렇게 Model - View - ViewModel은 각각 독립적이기 때문에 모듈화하여 개발 가능하고 단위테스트에도 용이합니다.  
+  
+물론 MVVM 또한 장점만 존재하지는 않습니다. 이렇듯 MVC에 비해 훨씬 구조가 어렵기 때문에 설계가 만만치 않다는 단점이 존재합니다.  
+또한, 규모가 큰 프로젝트에선 MVVM이 유지보수에 유리하지만 규모가 작은 프로젝트에 MVVM은 오히려 독이 됩니다.
+
+
+
