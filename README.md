@@ -526,5 +526,112 @@ Data Binding을 이용하였기 때문에 View와 ViewModel 이 둘의 의존성
 물론 MVVM 또한 장점만 존재하지는 않습니다. 이렇듯 MVC에 비해 훨씬 구조가 어렵기 때문에 설계가 만만치 않다는 단점이 존재합니다.  
 또한, 규모가 큰 프로젝트에선 MVVM이 유지보수에 유리하지만 규모가 작은 프로젝트에 MVVM은 오히려 독이 됩니다.
 
+위 MVVM의 플로우대로 MVC 프로젝트에 적용해보기로 합니다. 그렇기에 코드 한줄한줄 작성할 때마다 이 코드가 MVVM의 플로우가 맞는지 생각하면서 적용해나가야 합니다.  
+저도 100% 이해가 되지 않았고 이 방법이 완벽한 RxSwift + MVVM 로직에 맞지 않다는 것을 작성하면서도 느낍니다.  
+하지만 우선 기능동작부터 하게 하고 이후에 기능별로 View와 ViewModel, Controller에 명확하게 코드들을 분리하고 의존성 주입을 하며 리팩토링할 것입니다.  
+그리고 아래 코드들은 기존의 MVC 패턴에서 모든 기능들이 정상적으로 동작한다는 것으로 가정합니다.  
+
+### Controller
+먼저 View에서 발생한 어떠한 사용자와의 인터랙션을 ```ViewModel```에 넘겨줘야 합니다. 지금 인터랙션은 사용자가 앱을 실행하고 뷰가 로드되자마자 책 리스트들을 보여주는 코드입니다.
+``` Swift
+typealias ViewModel = ViewModel
+let triggerRelay = PublishRelay<TriggerType>()
+private var books: BehaviorRelay<Book> = BehaviorRelay<Book>(value: [])
+
+override func viewDidLoad() {
+   super.viewDidLoad()
+   setupLayout()
+   /// ViewModel과 송신할 메서드
+   bindingViewModel()
+}
+
+...
+
+func bindingViewModel() {
+   /// Action Trigger
+   let response = viewModel.transform(req: ViewModel.Input(action: triggerRelay.asObservable()))
+   
+   response.newBookRelay
+      .subscribe(onNext: { [weak self] bookResponse in
+         guard let `self` = self else { return }
+         UIView.transition(with: self.subView.collectionView, duration: 0.5, options: .transitionCrossDissolve) {
+            self.books.accept(bookResponse.book ?? [])
+         }
+   }).diseposed(by: disposeBag)
+   
+   /// ViewModel에서 받아온 데이터를 바탕으로 View에 Setup
+   self.books.asDriver()
+      .drive(subView.collectionView.rx.items(cellIdentifier: BookCell.identifier, cellType: BookCell.self)) { index, book, cell in
+         cell.setupRequest(book: book)
+      }.disposed(by: disposeBag)
+      
+      triggerRelay.accept(.viewDidLoad)
+}
+```
+### ViewModel
+Controller에서 발생한 인터랙션을 받아온 ViewModel은 가공, 변형을 거쳐 다시 View에게 넘겨줍니다.
+``` Swift
+/// 발생할 Trigger들을 열겨형으로 만들어 처리
+enum TriggerType {
+   case viewDidLoad
+   case select
+}
+
+typealias ViewModel = ViewModel
+
+private var disposeBag: DisposeBag = DisposeBag()
+private var book: PublishRelay<Book> = PublishRelay<Book>()
+
+private let apiService = APIService
+
+init(apiService: APIService) {
+   self.apiService = apiService
+}
+
+struct Input {
+   let trigger: Observable<TriggerType>
+}
+
+struct Output {
+   let book: PublishRelay<Book>
+
+}
+
+func transform(input: Input) -> Output {
+   /// Trigger별로 처리
+   input.action.bind(onNext: actionFnc).disposed(by: disposeBag)
+   
+   return Output(book: book)
+}
+
+func actionFnc(act: TriggerType) {
+   switch act {
+   case .viewDidLoad:
+      /// APIService에서 만든 서버 통신 메서드 호출
+      self.fetchBook()
+   case .select:
+      self.fetchSelectBook()
+   }
+}
+
+func fetchBook() {
+   /// Networking Logic ...
+}
+
+func fetchSelectBook() {
+   /// Networking Logic ...
+}
+```
+
+생략된 코드가 많지만 기존의 MVC로 작업했던 내용들과 크게 별반 다를게 없기에 과감하게 생략합니다.  
+물론 다른 부분들이 존재하지만 네트워킹 로직도 Single을 이용해 처리하면 크게 어려움 없을거라 생각합니다.  
+위 코드들을 보면 사용자와의 인터랙션(뷰가 로드될 때)이 발생하고 해당 액션을 ```ViewModel```의 ```Input```에 넘겨줍니다.
+액션을 받은 ViewModel은 ```transform``` 메서드에서 받은 액션을 바탕으로 코드를 처리합니다.
+이때 액션의 Trigger가 여러 종류일 경우가 대부분인데 이걸 액션마다 각각의 프로퍼티를 만들어서 처리하는 것은 비효율적입니다. 그래서 Trigger의 종류를 열거형으로 받아 처리했습니다.
+이렇게 가공, 변형하여 transform에서 Output으로 리턴해주고 다시 View에 전달합니다.
+
+이렇게 되면 무리없이 동작은 하지만 문제가 존재합니다. 저는 MVVM(Model, View, ViewModel)을 사용하면 SubView를 만들어 줘야 MVVM 특성에 맞다고 생각을 해서 SubView를 만들어줬는데,  
+만들어놓고 Controller에서 전부 처리하면 SubView의 존재 의미가 없습니다. 그래서 의존성 주입을 적용해야 합니다.
+
 
 
