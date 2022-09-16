@@ -531,107 +531,137 @@ Data Binding을 이용하였기 때문에 View와 ViewModel 이 둘의 의존성
 하지만 우선 기능동작부터 하게 하고 이후에 기능별로 View와 ViewModel, Controller에 명확하게 코드들을 분리하고 의존성 주입을 하며 리팩토링할 것입니다.  
 그리고 아래 코드들은 기존의 MVC 패턴에서 모든 기능들이 정상적으로 동작한다는 것으로 가정합니다.  
 
-### Controller
-먼저 View에서 발생한 어떠한 사용자와의 인터랙션을 ```ViewModel```에 넘겨줘야 합니다. 지금 인터랙션은 사용자가 앱을 실행하고 뷰가 로드되자마자 책 리스트들을 보여주는 코드입니다.
-``` Swift
-typealias ViewModel = ViewModel
-let triggerRelay = PublishRelay<TriggerType>()
-private var books: BehaviorRelay<Book> = BehaviorRelay<Book>(value: [])
+우선 개인적으로 코드 작성보다 중요하다고 생각하는 단계가 존재합니다. 먼저 설계를 해야합니다. 그림으로 그려도 좋고 글로 세세하게 풀어써도 좋습니다.  
+각 class 별로 필요한 전역 프로퍼티는 무엇이 존재하는지, BehaviorRelay 또는 PublishRelay 중 어떤 것을 사용할 것인지, 사용자 인터랙션에는 어떤 것들이 존재하는지, 에러처리는 어떻게 할 것인지, 사용자에게 알림 메시지를 표시할 때 어떤 방식을 사용할지, 각각의 액션이 발생할 때마다 데이터 처리를 어떻게 할 것인지 등 이 외에도 수많은 상황이 발생할 것이기 때문에 자세할 수록 나중에 발생할 다양한 상황들에 대해 유연하게 대처가 가능합니다.  
+아는 내용이 많다 할지라도 무조건 그려보고 적어보는 시간을 넉넉하게 가지고 코드를 작성하는 것을 추천합니다.  
 
-override func viewDidLoad() {
-   super.viewDidLoad()
-   setupLayout()
-   /// ViewModel과 송신할 메서드
-   bindingViewModel()
-}
-
-...
-
-func bindingViewModel() {
-   /// Action Trigger
-   let response = viewModel.transform(req: ViewModel.Input(action: triggerRelay.asObservable()))
-   
-   response.newBookRelay
-      .subscribe(onNext: { [weak self] bookResponse in
-         guard let `self` = self else { return }
-         UIView.transition(with: self.subView.collectionView, duration: 0.5, options: .transitionCrossDissolve) {
-            self.books.accept(bookResponse.book ?? [])
-         }
-   }).diseposed(by: disposeBag)
-   
-   /// ViewModel에서 받아온 데이터를 바탕으로 View에 Setup
-   self.books.asDriver()
-      .drive(subView.collectionView.rx.items(cellIdentifier: BookCell.identifier, cellType: BookCell.self)) { index, book, cell in
-         cell.setupRequest(book: book)
-      }.disposed(by: disposeBag)
-      
-      triggerRelay.accept(.viewDidLoad)
-}
-```
+먼저 하나의 화면에 대한 구조는 아래와 같이 설계했습니다. (TableView, or CollectionView가 존재하지 않는다는 가정. 존재한다면 Cell class가 필요합니다.)
 ### ViewModel
-Controller에서 발생한 인터랙션을 받아온 ViewModel은 가공, 변형을 거쳐 다시 View에게 넘겨줍니다.
+비즈니스 로직을 처리합니다. 가능한 한 보일러 플레이트 코드나 필요없다 생각되는 코드는 생략합니다.
+
 ``` Swift
 /// 발생할 Trigger들을 열겨형으로 만들어 처리
-enum TriggerType {
-   case viewDidLoad
-   case select
+enum TriggerType { // 액션 종류
+   case textFieldText(String) // 사용자가 선택한 리스트 중 하나
 }
 
 typealias ViewModel = ViewModel
 
 private var disposeBag: DisposeBag = DisposeBag()
-private var book: PublishRelay<Book> = PublishRelay<Book>()
-
-private let apiService = APIService
-
-init(apiService: APIService) {
-   self.apiService = apiService
-}
+private var dataList: PublishRelay<DataList> = PublishRelay<DataList>()
 
 struct Input {
+   let refresh: Observable<Void>
    let trigger: Observable<TriggerType>
 }
 
 struct Output {
-   let book: PublishRelay<Book>
-
+   let dataList: PublishRelay<data>
 }
 
 func transform(input: Input) -> Output {
-   /// Trigger별로 처리
-   input.action.bind(onNext: actionFnc).disposed(by: disposeBag)
+   input.refresh
+         .subscribe(onNext: fetchData)
+         .disposed(by: disposeBag)
+   // Trigger별로 처리
+   input.action
+         .bind(onNext: actionFnc)
+         .disposed(by: disposeBag)
    
-   return Output(book: book)
+   return Output(dataList: dataList)
 }
 
 func actionFnc(act: TriggerType) {
    switch act {
-   case .viewDidLoad:
-      /// APIService에서 만든 서버 통신 메서드 호출
-      self.fetchBook()
-   case .select:
-      self.fetchSelectBook()
+   case .textFieldText(let text):
+      // 가져온 String으로 비즈니스 로직 
    }
 }
 
-func fetchBook() {
-   /// Networking Logic ...
+func fetchData() {
+   // Networking Logic ...
+}
+```
+중요한 부분은 ```transform```, ```actionFnc``` 메서드입니다. ViewController에서 받아온 ```actionTrigger```는 ```Input```으로 전달되어집니다.  
+이제 자신에게 필요에 맞게 Transform 해야 합니다.  
+```transform``` 메서드를 보면 ```actionFnc``` 메서드를 호출하죠? ```actionFnc``` 메서드는 ```act: TriggerType```를 인자로 받습니다.  
+그래서 들어온 액션에 따라 처리를 합니다. 이때 유심히 볼 것은 액션을 담는 ```TriggerType```이 열거형이라는 것입니다.  
+열거형으로 하면 if 조건문을 사용하는 비효율적인 방식이 아닌 들어온 액션에 맞는 비즈니스 로직만 수행하기 때문입니다.  
+그렇게 로직을 수행한 결과물은 ```transform``` 메서드의 아웃풋으로 반환됩니다.
+
+### ViewController
+View로부터 액션 타입과 데이터를 받아옵니다.
+
+``` Swift
+typealias ViewModel = ViewModel
+var viewModel: ViewModel = ViewModel() // 초기화 시점은 각자의 몫. 예시에서는 뷰 컨트롤러 내부에서 초기화
+
+let refreshTrigger = PublishRelay<Void>()  // 뷰가 로드되면 받아올 액션 프로퍼티
+let actionTrigger = PublishRelay<TriggerType>() // View로부터 발생한 사용자 인터랙션 프로퍼티
+
+override func viewDidLoad() {
+   super.viewDidLoad()
+   setupLayout()
+   bindingViewModel()
+   
+   refreshTrigger.accept(()) // 별다른 사용자의 인터랙션 없이 뷰가 로드되자마자 보여질 데이터들은 viewDidLoad() 메서드에서 액션 발생 처리
 }
 
-func fetchSelectBook() {
-   /// Networking Logic ...
+...
+func bindingViewModel() {
+   let response = viewModel.transform(req: ViewModel.Input(refresh: refreshTrigger.asObservable(), action: triggerRelay.asObservable()))
+   
+   subView
+      .setupDI(dataList: response.dataList) // 모든 비즈니스 로직이 처리되고 마지막 뷰에 뿌려질 때 필요한 메서드
+      .setupDI(action: actionTrigger) // View로부터 받아온 액션을 전역 actionTrigger PublishRelay 프로퍼티에 전달할 때 필요한 메서드
+}
+
+let subView = MainSubView()
+
+... (레이아웃 셋업 코드)
+
+```
+
+### View
+사용자로부터 액션을 받아옵니다.
+``` Swift
+...
+UI 프로퍼티
+...
+
+@discardableResult
+func setupDI(dataList: Observable<DataList>) -> Self {
+   dataList
+      .withUnretained(self) // RxSwift 6 이상부터 가능한 메서드. 기존의 guard let `self` 써도 무방.
+      .bind(onNext: { owner, data in
+         
+         owner.someUIProperty.text = data.title
+      }).disposed(by: disposeBag)
+   
+   return self
+}
+
+@discardableResult
+func setupDI(action: PublishRelay<TriggerType>) -> Self {
+   // 사용자 인터랙션을 ViewController의 actionTrigger로 바인딩 할 코드 ..
+   textField.rx.text
+      .orEmpty
+      .debounce(.milliseconds(500), scheduler: MainScheduler.instance)
+      .map { .textFieldText($0) }
+      .bind(to: action)
+      .disposed(by: disposeBag)
+
+   return self
 }
 ```
 
-생략된 코드가 많지만 기존의 MVC로 작업했던 내용들과 크게 별반 다를게 없기에 과감하게 생략합니다.  
-물론 다른 부분들이 존재하지만 네트워킹 로직도 Single을 이용해 처리하면 크게 어려움 없을거라 생각합니다.  
-위 코드들을 보면 사용자와의 인터랙션(뷰가 로드될 때)이 발생하고 해당 액션을 ```ViewModel```의 ```Input```에 넘겨줍니다.
-액션을 받은 ViewModel은 ```transform``` 메서드에서 받은 액션을 바탕으로 코드를 처리합니다.
-이때 액션의 Trigger가 여러 종류일 경우가 대부분인데 이걸 액션마다 각각의 프로퍼티를 만들어서 처리하는 것은 비효율적입니다. 그래서 Trigger의 종류를 열거형으로 받아 처리했습니다.
-이렇게 가공, 변형하여 transform에서 Output으로 리턴해주고 다시 View에 전달합니다.
-
-이렇게 되면 무리없이 동작은 하지만 문제가 존재합니다. 저는 MVVM(Model, View, ViewModel)을 사용하면 SubView를 만들어 줘야 MVVM 특성에 맞다고 생각을 해서 SubView를 만들어줬는데,  
-만들어놓고 Controller에서 전부 처리하면 SubView의 존재 의미가 없습니다. 그래서 의존성 주입을 적용해야 합니다.
-
-
-
+```@discardable```과 ```self```, ```Self```에 대한 개념이 익숙치 않다면 꼭 찾아보시길 바랍니다.  
+ViewController로 액션을 바인딩 할때 위 방식 말고도 다른 방식들이 존재합니다. 이 방식이 정답이 아닙니다.  
+그리고 위 상황은 매우 간단하고 단순한 형태입니다. 훨씬 더 많고 복잡한 액션들이 존재한다 생각합니다.  
+```ViewModel```의 ```Output```이 하나로 될 수 있다면 좋겠지만 그러기 쉽지 않아요.  
+Output도 마찬가지로 열거형을 사용한다면 더 가독성이 좋은 코드로 만들 수 있습니다.  
+어느정도 익숙하게 하려면 검색화면 정도는 꼭 만들어 보세요.  
+그리고 개인적으로 메모리 누수, ARC, 순환참조, Cell Dequeue, deinit, prepareForReuse, DisposeBag 들은 매우 중요하다 생각합니다. 다시한번 찾아보시면 좋을 내용들이 많아요.  
+  
+  
+***배운 내용을 토대로 계속 추가될 예정입니다. 내용에 문제가 있으면 피드백 해주시면 감사하겠습니다.***
