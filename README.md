@@ -537,7 +537,7 @@ Data Binding을 이용하였기 때문에 View와 ViewModel 이 둘의 의존성
 
 먼저 하나의 화면에 대한 구조는 아래와 같이 설계했습니다. (TableView, or CollectionView가 존재하지 않는다는 가정. 존재한다면 Cell class가 필요합니다.)
 ### ViewModel
-비즈니스 로직을 처리합니다. 가능한 한 보일러 플레이트 코드나 필요없다 생각되는 코드는 생략합니다.
+비즈니스 로직을 처리합니다. 보일러 플레이트 코드나 필요없다 생각되는 코드는 가능한 한 생략합니다.
 
 ``` Swift
 /// 발생할 Trigger들을 열겨형으로 만들어 처리
@@ -663,5 +663,42 @@ Output도 마찬가지로 열거형을 사용한다면 더 가독성이 좋은 �
 어느정도 익숙하게 하려면 검색화면 정도는 꼭 만들어 보세요.  
 그리고 개인적으로 메모리 누수, ARC, 순환참조, Cell Dequeue, deinit, prepareForReuse, DisposeBag 들은 매우 중요하다 생각합니다. 다시한번 찾아보시면 좋을 내용들이 많아요.  
   
+## [RxFlow](https://github.com/RxSwiftCommunity/RxFlow)
+RxFlow는 Coorinator Pattern의 원리를 코드로 녹여낸 라이브러리입니다.  
+**Coordinator Pattern**에 대한 설명은 많은 정보들이 있습니다. 먼저 찾아보시고 RxFlow를 보시는 것을 추천합니다.  
   
+먼저 기존의 화면 이동 및 연결의 문제를 해결하기 위해 Coordinator Pattern을 사용했습니다.  
+거기에 Reactive하게 사용하기 위해 Coordinator Pattern을 코드로 녹인 RxFlow를 사용합니다.  
+> RxFlow is a navigation framework for iOS applications based on a Reactive Flow Coordinator pattern.
+RxFlow가 Coordinator Pattern 기반인데 굳이 Coordinator Pattern을 사용하는 이유와 다른 자세한 이론에 대해서는 공식 깃허브 레포를 확인하시면 좋아요.  
+
+### RxFlow 용어 정의
+* **Flow** : 각 Flow는 애플리케이션의 탐색 영역을 정의합니다. 이것은 탐색 작업을 선언하는 곳입니다. 다시 말해 네비게이션 공간을 뜻합니다.
+* **Step** : Step은 네비게이션으로 이어질 수 있는 상태를 표현하는 방법입니다. 즉 Flow의 상태를 의미하며, Step은 Flow에서 선언된 화면으로 내부 값을 포함할 수도 있습니다. (열거형의 연관값)
+* **Stepper** : Step을 방출할 수 있는 모든 것이 될 수 있습니다. Stepper은 Flow 내부의 내비게이션 액션을 트리거 할 수 있습니다.
+* **Presentable** : 표현할 수 있는 것의 추상화입니다. (기본적으로 UIViewController, Flow는 Presentable)
+* **FlowContributor** : FlowCoordinator에게 Flow에서 새 단계를 생성할 수 있는 다음 항목이 무엇인지 알려주는 간단한 데이터 구조입니다.
+* **FlowCoordinator** : 개발자가 탐색 가능성을 나타내는 Flows 및 Steps 의 적절한 조합을 정의하면 FlowCoordinator의 작업은 이러한 조합을 혼합하여 앱의 모든 탐색을 처리하는 것입니다. FlowCoordinators는 RxFlow에서 제공하므로 구현할 필요가 없습니다.  
+
+### 구현
+
+1. **Step 정의**
+Step을 정의할 때는 열거형으로 정의합니다. Step에서는 어떠한 작업을 어떻게 할 것이다 라고 알릴 필요는 없고 선언만 하면 됩니다.  
+위에서 사용자 인터랙션에 대한 트리거를 열거형으로 정의한 개념과 동일합니다.  
+그래서 Switch-Case 문을 사용하기 때문에 안전합니다.  
+
+
+```
+enum AppStep: Step {
+   case main
+   case detail
+}
+```
+
+
+2. **Flow 정의**
+3. **Stepper 정의**
+
+
+
 ***배운 내용을 토대로 계속 추가될 예정입니다. 내용에 문제가 있으면 피드백 해주시면 감사하겠습니다.***
