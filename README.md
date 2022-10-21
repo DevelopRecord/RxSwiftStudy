@@ -669,7 +669,7 @@ RxFlow는 Coorinator Pattern의 원리를 코드로 녹여낸 라이브러리입
   
 먼저 기존의 화면 이동 및 연결의 문제를 해결하기 위해 Coordinator Pattern을 사용했습니다.  
 거기에 Reactive하게 사용하기 위해 Coordinator Pattern을 코드로 녹인 RxFlow를 사용합니다.  
-> RxFlow is a navigation framework for iOS applications based on a Reactive Flow Coordinator pattern.
+> RxFlow is a navigation framework for iOS applications based on a Reactive Flow Coordinator pattern.  
 RxFlow가 Coordinator Pattern 기반인데 굳이 Coordinator Pattern을 사용하는 이유와 다른 자세한 이론에 대해서는 공식 깃허브 레포를 확인하시면 좋아요.  
 
 ### RxFlow 용어 정의
