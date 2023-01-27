@@ -692,13 +692,35 @@ Step을 정의할 때는 열거형으로 정의합니다. Step에서는 어떠�
 
 ```
 enum AppStep: Step {
-   case main
-   case detail
+   // Main
+   case mainTabbarIsRequired
+   
+   // Home
+   case homeIsRequired
+
+   // Search
+   case searchIsRequired
+
+   // Setting
+   case settingIsRequired
 }
 ```
 
+2. **SceneDelegate(AppDelegate) 정의**
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+   var disposeBag = DisposeBag()
+   var window: UIWindow?
+   private let coordinator: FlowCoordinator = .init()
+   
+   func scene(_ scene: UIScene, willConnectTo session: UISceneSession, connectionOptions: UIScene.ConnectionOptions) {
+      
+      
+   
+   
+   }
 
-2. **Flow 정의**
+   
+}
 3. **Stepper 정의**
 
 
